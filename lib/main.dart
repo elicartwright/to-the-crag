@@ -1,231 +1,115 @@
-// Flutter code sample for Scaffold
-
-// This example shows a [Scaffold] with a [body] and [FloatingActionButton].
-// The [body] is a [Text] placed in a [Center] in order to center the text
-// within the [Scaffold]. The [FloatingActionButton] is connected to a
-// callback that increments a counter.
-//
-// ![The Scaffold has a white background with a blue AppBar at the top. A blue FloatingActionButton is positioned at the bottom right corner of the Scaffold.](https://flutter.github.io/assets-for-api-docs/assets/material/scaffold.png)
-
 import 'package:flutter/material.dart';
-import 'dart:async';
-import 'package:weather/weather_library.dart';
+import 'package:flutter_weather/src/screens/routes.dart';
+import 'package:flutter_weather/src/screens/weather_screen.dart';
+import 'package:bloc/bloc.dart';
+import 'package:flutter_weather/src/themes.dart';
+import 'package:flutter_weather/src/utils/constants.dart';
+import 'package:flutter_weather/src/utils/converters.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-enum AppState { NOT_DOWNLOADED, DOWNLOADING, FINISHED_DOWNLOADING }
+void main() {
+  BlocSupervisor().delegate = SimpleBlocDelegate();
+  runApp(AppStateContainer(child: WeatherApp()));
+}
 
-void main() => runApp(MyApp());
+class SimpleBlocDelegate extends BlocDelegate {
+  @override
+  onTransition(Bloc bloc, Transition transition) {
+    super.onTransition(bloc, transition);
+    print(transition);
+  }
+}
 
-/// This Widget is the main application widget.
-class MyApp extends StatelessWidget {
-  static const String _title = 'Flutter Code Sample';
-
+class WeatherApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: _title,
-      home: MyStatefulWidget(),
+      title: 'Flutter Weather App',
+      theme: AppStateContainer.of(context).theme,
+      home: WeatherScreen(),
+      routes: Routes.mainRoute,
     );
   }
 }
 
-class MyStatefulWidget extends StatefulWidget {
-  MyStatefulWidget({Key key}) : super(key: key);
+/// top level widget to hold application state
+/// state is passed down with an inherited widget
+class AppStateContainer extends StatefulWidget {
+  final Widget child;
+
+  AppStateContainer({@required this.child});
 
   @override
-  _MyStatefulWidgetState createState() => _MyStatefulWidgetState();
+  _AppStateContainerState createState() => _AppStateContainerState();
+
+  static _AppStateContainerState of(BuildContext context) {
+    return (context.inheritFromWidgetOfExactType(_InheritedStateContainer)
+            as _InheritedStateContainer)
+        .data;
+  }
 }
 
-class _MyStatefulWidgetState extends State<MyStatefulWidget> {
-  final _formKey = GlobalKey<FormState>();
-  String searchText = '';
-  String key = 'c42af43eb20a8eb991ede3d3401d15e9';
-  WeatherStation ws;
-  List<Weather> _data = [];
-  AppState _state = AppState.NOT_DOWNLOADED;
-  double lat, lon;
+class _AppStateContainerState extends State<AppStateContainer> {
+  ThemeData _theme = Themes.getTheme(Themes.DARK_THEME_CODE);
+  int themeCode = Themes.DARK_THEME_CODE;
+  TemperatureUnit temperatureUnit = TemperatureUnit.celsius;
+
 
   @override
-  void initState() {
+  initState() {
     super.initState();
-    ws = new WeatherStation(key);
-  }
-
-  void queryForecast() async {
-    /// Removes keyboard
-    FocusScope.of(context).requestFocus(FocusNode());
-    setState(() {
-      _state = AppState.DOWNLOADING;
-    });
-
-    List<Weather> forecasts = await ws.fiveDayForecast(lat, lon);
-    print(forecasts);
-    print('got here matey');
-    setState(() {
-      _data = forecasts;
-      _state = AppState.FINISHED_DOWNLOADING;
+    SharedPreferences.getInstance().then((sharedPref) {
+      setState(() {
+        themeCode = sharedPref.getInt(CONSTANTS.SHARED_PREF_KEY_THEME) ??
+            Themes.DARK_THEME_CODE;
+        temperatureUnit = TemperatureUnit.values[
+            sharedPref.getInt(CONSTANTS.SHARED_PREF_KEY_TEMPERATURE_UNIT) ??
+                TemperatureUnit.celsius.index];
+        this._theme = Themes.getTheme(themeCode);
+      });
     });
   }
 
-  void queryWeather() async {
-    /// Removes keyboard
-    FocusScope.of(context).requestFocus(FocusNode());
-
-    setState(() {
-      _state = AppState.DOWNLOADING;
-    });
-
-    Weather weather = await ws.currentWeather(lat, lon);
-    setState(() {
-      _data = [weather];
-      _state = AppState.FINISHED_DOWNLOADING;
-    });
-  }
-
-  Widget contentFinishedDownload() {
-    return Center(
-      child: ListView.separated(
-        itemCount: _data.length,
-        itemBuilder: (context, index) {
-          return ListTile(
-            title: Text(_data[index].toString()),
-          );
-        },
-        separatorBuilder: (context, index) {
-          return Divider();
-        },
-      ),
-    );
-  }
-
-  Widget contentDownloading() {
-    return Container(
-        margin: EdgeInsets.all(25),
-        child: Column(children: [
-          Text(
-            'Fetching Weather...',
-            style: TextStyle(fontSize: 20),
-          ),
-          Container(
-              margin: EdgeInsets.only(top: 50),
-              child: Center(child: CircularProgressIndicator(strokeWidth: 10)))
-        ]));
-  }
-
-  Widget contentNotDownloaded() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Text(
-            'Press the button to download the Weather forecast',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _resultView() => _state == AppState.FINISHED_DOWNLOADING
-      ? contentFinishedDownload()
-      : _state == AppState.DOWNLOADING
-          ? contentDownloading()
-          : contentNotDownloaded();
-
-  void _saveLat(String input) {
-    lat = double.tryParse(input);
-    print(lat);
-  }
-
-  void _saveLon(String input) {
-    lon = double.tryParse(input);
-    print(lon);
-  }
-
-  Widget _latTextField() {
-    return Container(
-        decoration: BoxDecoration(
-            border: Border(
-                bottom: BorderSide(color: Theme.of(context).dividerColor))),
-        padding: EdgeInsets.all(10),
-        child: TextField(
-            decoration: InputDecoration(
-                border: OutlineInputBorder(), hintText: 'Enter longitude'),
-            keyboardType: TextInputType.number,
-            onChanged: _saveLat,
-            onSubmitted: _saveLat));
-  }
-
-  Widget _lonTextField() {
-    return Container(
-        decoration: BoxDecoration(
-            border: Border(
-                bottom: BorderSide(color: Theme.of(context).dividerColor))),
-        padding: EdgeInsets.all(10),
-        child: TextField(
-            decoration: InputDecoration(
-                border: OutlineInputBorder(), hintText: 'Enter longitude'),
-            keyboardType: TextInputType.number,
-            onChanged: _saveLon,
-            onSubmitted: _saveLon));
-  }
-
-  Widget _weatherButton() {
-    return FlatButton(
-      child: Text('Fetch weather'),
-      onPressed: queryWeather,
-      color: Colors.blue,
-    );
-  }
-
-  Widget _forecastButton() {
-    return FlatButton(
-      child: Text('Fetch forecast'),
-      onPressed: queryForecast,
-      color: Colors.blue,
-    );
-  }
-
-
-  Widget buildSearchBar() {
-    return Form(
-        key: _formKey,
-        child: TextFormField(
-            decoration: InputDecoration(
-          hintText: 'Enter your location',
-        )));
-  }
-
-  Widget buildMainColumn() {
-    Widget searchBarA = buildSearchBar();
-    return Column(children: [
-      searchBarA,
-      _latTextField(),
-      _lonTextField(),
-      _weatherButton(),
-      _forecastButton(),
-      Text(
-        'Output:',
-        style: TextStyle(fontSize: 20),
-      ),
-      Divider(
-        height: 20.0,
-        thickness: 2.0,
-      ),
-      Expanded(child: _resultView()) // <---This is the search bar
-      // <--- add it here,
-      // outWeather
-      // Text('Hello there')
-    ]);
-  }
-
+  @override
   Widget build(BuildContext context) {
-    Widget mainColumn = buildMainColumn();
-    Widget paddedMainColumn =
-        Padding(child: mainColumn, padding: EdgeInsets.all(26.0));
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('To The Crag'),
-      ),
-      body: paddedMainColumn,
+    print(theme.accentColor);
+    return _InheritedStateContainer(
+      data: this,
+      child: widget.child,
     );
   }
+
+  ThemeData get theme => _theme;
+
+  updateTheme(int themeCode) {
+    setState(() {
+      _theme = Themes.getTheme(themeCode);
+      this.themeCode = themeCode;
+    });
+    SharedPreferences.getInstance().then((sharedPref) {
+      sharedPref.setInt(CONSTANTS.SHARED_PREF_KEY_THEME, themeCode);
+    });
+  }
+
+  updateTemperatureUnit(TemperatureUnit unit) {
+    setState(() {
+      this.temperatureUnit = unit;
+    });
+    SharedPreferences.getInstance().then((sharedPref) {
+      sharedPref.setInt(CONSTANTS.SHARED_PREF_KEY_TEMPERATURE_UNIT, unit.index);
+    });
+  }
+}
+
+class _InheritedStateContainer extends InheritedWidget {
+  final _AppStateContainerState data;
+
+  const _InheritedStateContainer({
+    Key key,
+    @required this.data,
+    @required Widget child,
+  }) : super(key: key, child: child);
+
+  @override
+  bool updateShouldNotify(_InheritedStateContainer oldWidget) => true;
 }
