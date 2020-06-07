@@ -26,7 +26,7 @@ class WeatherScreen extends StatefulWidget {
 class _WeatherScreenState extends State<WeatherScreen>
     with TickerProviderStateMixin {
   WeatherBloc _weatherBloc;
-  String _cityName = 'bengaluru';
+  String _cragName = 'bengaluru';
   AnimationController _fadeController;
   Animation<double> _fadeAnimation;
   final _formKey = GlobalKey<FormState>();
@@ -38,13 +38,29 @@ class _WeatherScreenState extends State<WeatherScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           TextFormField(
+            textAlign: TextAlign.center,
             onFieldSubmitted: (text) {
-              _cityName = text;
+              _cragName = text;
               _fetchWeatherWithCity();
             },
             style: TextStyle(color: Colors.white),
             cursorColor: Colors.white,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
+              contentPadding: EdgeInsets.zero,
+              fillColor: Colors.white,
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(25.0),
+                borderSide: BorderSide(
+                  color: Colors.white,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(25.0),
+                borderSide: BorderSide(
+                  color: Colors.white,
+                  width: 2.0,
+                ),
+              ),
               hintText: 'Enter your destination',
             ),
             validator: (value) {
@@ -119,7 +135,7 @@ class _WeatherScreenState extends State<WeatherScreen>
                   bloc: _weatherBloc,
                   builder: (_, WeatherState weatherState) {
                     if (weatherState is WeatherLoaded) {
-                      this._cityName = weatherState.weather.cityName;
+                      this._cragName = weatherState.weather.cityName;
                       _fadeController.reset();
                       _fadeController.forward();
                       // Create a column of [Padding(inputForm), WeatherWidget]
@@ -138,7 +154,7 @@ class _WeatherScreenState extends State<WeatherScreen>
                       if (weatherState is WeatherError) {
                         if (weatherState.errorCode == 404) {
                           errorText =
-                              'We have trouble fetching weather for $_cityName';
+                              'We have trouble fetching weather for $_cragName';
                         }
                       }
                       return Column(
@@ -161,13 +177,20 @@ class _WeatherScreenState extends State<WeatherScreen>
                           ),
                           FlatButton(
                             child: Text(
-                              "Try Again",
+                              "Go Home",
                               style: TextStyle(
                                   color: AppStateContainer.of(context)
                                       .theme
                                       .accentColor),
                             ),
-                            onPressed: _fetchWeatherWithCity,
+                            // Replace this with the function which navigates home
+                            // This is a function
+                            // () {
+                            // Do something in here
+                            // }
+                            onPressed: () {
+                              Navigator.of(context).pushNamed("/home");
+                            },
                           )
                         ],
                       );
@@ -186,15 +209,16 @@ class _WeatherScreenState extends State<WeatherScreen>
   }
 
   _onOptionMenuItemSelected(OptionsMenu item) {
-    switch (item) {
-      case OptionsMenu.settings:
-        Navigator.of(context).pushNamed("/settings");
-        break;
-    }
+    Navigator.of(context).pushNamed("/settings");
   }
 
-  _fetchWeatherWithCity() {
-    _weatherBloc.dispatch(FetchWeather(cityName: _cityName));
+  _fetchWeatherWithCity() async {
+    List<Placemark> placemarks =
+        await Geolocator().placemarkFromAddress(_cragName);
+    Placemark placemark = placemarks[0];
+    Position position = placemark.position;
+    _weatherBloc.dispatch(FetchWeather(
+        longitude: position.longitude, latitude: position.latitude));
   }
 
   _fetchWeatherWithLocation() async {
