@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:convert';
 
 enum OptionsMenu { changeCity, settings }
 
@@ -213,12 +214,17 @@ class _WeatherScreenState extends State<WeatherScreen>
   }
 
   _fetchWeatherWithCity() async {
-    List<Placemark> placemarks =
-        await Geolocator().placemarkFromAddress(_cragName);
-    Placemark placemark = placemarks[0];
-    Position position = placemark.position;
+    // Get location from /search/_crag_name
+    final http.Response response = await http.get('http://10.0.2.2:8000/search/' + _cragName);
+    final cragList = json.decode(response.body);
+
+    final firstCrag = cragList[0];
+    final double longitude = double.parse(firstCrag["longitude"]);
+    final double latitude = double.parse(firstCrag["latitude"]);
+
+    // Dispatch weather
     _weatherBloc.dispatch(FetchWeather(
-        longitude: position.longitude, latitude: position.latitude));
+        longitude: longitude, latitude: latitude));
   }
 
   _fetchWeatherWithLocation() async {
